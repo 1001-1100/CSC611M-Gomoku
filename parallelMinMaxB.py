@@ -408,7 +408,7 @@ else:
 
 with open('ParallelB.csv', 'a') as csvfile:
     writer = csv.writer(csvfile)
-    writer.writerow([x,y,length,withpruning] + times + [cpuMean,cpuHigh,cpuLow,cpuMedian,memoryMean])
+    writer.writerow([x,y,length,withpruning,depth] + times + [cpuMean,cpuHigh,cpuLow,cpuMedian,memoryMean])
 
 # with open('SerialUsedMemory.csv', 'a') as csvfile:
 #     writer = csv.writer(csvfile)

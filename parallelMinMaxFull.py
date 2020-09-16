@@ -191,7 +191,6 @@ def evaluate(board):
 def minimaxNoPruning(state, turn, depth):
     board = Board(state, x, y, length)
 
-    # Initialize scores to be the 'worst'
     if(turn == blackTurn):
         minMaxScore = float('-inf')
     elif(turn == whiteTurn):
@@ -199,17 +198,13 @@ def minimaxNoPruning(state, turn, depth):
 
     minMaxMove = None
 
-    # Check if you reached the end depth or if game will end
     if(depth > 0 and not board.check_win() and not board.check_end()):
-        # Get possible moves (branches)
         moves = board.get_possibilities()
         depth -= 1
         for move in moves:
-            # Traverse each branch and return the corresponding score
             player = black if turn else white
             state[move[0]][move[1]] = player
             score = minimaxNoPruning(np.copy(state), not turn, depth)[1]
-            # If score is better than previous best, replace
             if(turn == blackTurn):
                 if(minMaxScore <= score):
                     minMaxScore = score
@@ -220,7 +215,6 @@ def minimaxNoPruning(state, turn, depth):
                     minMaxMove = move
             state[move[0]][move[1]] = blank
     else:
-        # If game is won by a player, set score to infinity ('best move')
         if(board.check_win()):
             winner = int(board.check_who_win())
             if(winner == black):
@@ -274,19 +268,83 @@ def minimax(state, turn, alpha, beta, depth):
         else:
             minMaxScore = evaluate(board)
     
+    return (minMaxMove, minMaxScore)
+
+def parallelA(state, turn, depth):
+    class workerThread(multiprocessing.Process):
+        def __init__(self, state, move, q):
+            multiprocessing.Process.__init__(self)
+            self.state = state
+            self.move = move
+            self.q = q
+
+        def run(self):
+            state = self.state
+            move = self.move
+            q = self.q
+            state[move[0]][move[1]] = black if turn else white 
+            if(withpruning == 1):
+                score = minimax(state, not turn, float('-inf'), float('inf'), depth)[1]
+            if(withpruning == 0):
+                score = minimaxNoPruning(state, not turn, depth)[1]
+            minMaxScore = score
+            minMaxMove = move 
+            # Put move and score in the queue for parsing later
+            q.put((minMaxScore, minMaxMove))
+
+    board = Board(state, x, y, length)
+
+    workers = []
+    count = 0
+    # Queue for keeping track of move scores
+    q = multiprocessing.Queue()
+    # Get possible moves (branches)
+    moves = board.get_possibilities()
+    for move in moves:
+        # For each branch, create a process that traverses
+        worker = workerThread(np.copy(state), move, q)
+        count += 1
+        worker.start()
+        workers.append(worker)
+
+    # Wait for all workers to be done before proceeding
+    while len(workers) > 0:
+        workers = [worker for worker in workers if worker.is_alive()]
+
+    if(turn == blackTurn):
+        minMaxScore = float('-inf')
+    elif(turn == whiteTurn):
+        minMaxScore = float('inf')
+    
+    minMaxMove = None
+    
+    # Go through the queue, determine which move has the highest score
+    while(not q.empty()):
+        item = q.get()
+        score = item[0]
+        move = item[1]
+        if(turn == blackTurn):
+            if(minMaxScore <= score):
+                minMaxScore = score
+                minMaxMove = move
+        elif(turn == whiteTurn):
+            if(minMaxScore >= score):
+                minMaxScore = score
+                minMaxMove = move
 
     return (minMaxMove, minMaxScore)
 
 def gameMove(turn, player):
-    alpha = float('-inf')
-    beta = float('inf')
+    # alpha = float('-inf')
+    # beta = float('inf')
 
     state = np.copy(board.get_board())
 
-    if(withpruning == 1):
-        data = minimax(state, turn, alpha, beta, depth)
-    if(withpruning == 0):
-        data = minimaxNoPruning(state, turn, depth)
+    # if(withpruning == 1):
+    #     data = minimax(state, turn, alpha, beta, depth)
+    # if(withpruning == 0):
+    #     data = minimaxNoPruning(state, turn, depth)
+    data = parallelA(state, turn, depth)
     move = data[0]
     board.set_position(move[0], move[1], player)
     print(board.get_board())
@@ -301,16 +359,16 @@ for i in range(iterations):
     state = np.zeros((x,y))
     board = Board(state,x,y,length)
     start_time = time.time()
-    # gameRunning = True
-    # while(gameRunning):
-    #     if(gameRunning):
-    gameMove(blackTurn, black)
-        # if(board.check_win() or board.check_end()):
-        #     gameRunning = False
-        # if(gameRunning):
-    gameMove(whiteTurn, white)
-        # if(board.check_win() or board.check_end()):
-        #     gameRunning = False
+    gameRunning = True
+    while(gameRunning):
+        if(gameRunning):
+            gameMove(blackTurn, black)
+        if(board.check_win() or board.check_end()):
+            gameRunning = False
+        if(gameRunning):
+            gameMove(whiteTurn, white)
+        if(board.check_win() or board.check_end()):
+            gameRunning = False
     end_time = time.time()
     times.append(end_time - start_time)
 
@@ -344,7 +402,7 @@ if(len(memory) > 0):
 else:
     memoryMean = 0
 
-with open('Serial.csv', 'a') as csvfile:
+with open('Parallel.csv', 'a') as csvfile:
     writer = csv.writer(csvfile)
     writer.writerow([x,y,length,withpruning,depth] + times + [cpuMean,cpuHigh,cpuLow,cpuMedian,memoryMean])
 

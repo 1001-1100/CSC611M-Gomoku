@@ -301,16 +301,16 @@ for i in range(iterations):
     state = np.zeros((x,y))
     board = Board(state,x,y,length)
     start_time = time.time()
-    # gameRunning = True
-    # while(gameRunning):
-    #     if(gameRunning):
-    gameMove(blackTurn, black)
-        # if(board.check_win() or board.check_end()):
-        #     gameRunning = False
-        # if(gameRunning):
-    gameMove(whiteTurn, white)
-        # if(board.check_win() or board.check_end()):
-        #     gameRunning = False
+    gameRunning = True
+    while(gameRunning):
+        if(gameRunning):
+            gameMove(blackTurn, black)
+        if(board.check_win() or board.check_end()):
+            gameRunning = False
+        if(gameRunning):
+            gameMove(whiteTurn, white)
+        if(board.check_win() or board.check_end()):
+            gameRunning = False
     end_time = time.time()
     times.append(end_time - start_time)
 
